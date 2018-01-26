@@ -1,0 +1,145 @@
+#include <iostream>
+#include <conio>
+#include <stdio>
+#include <fstream>
+#include <stdlib>
+#include <math>
+#define reso 15708
+#define breso 1500
+
+
+int nodes, neles, neighbornode[reso][11]={0}, m=2, neighborno[reso]={0},n1[30501],n2[30501],n3[30501];
+long double nx[reso], ny[reso];
+
+ifstream gridfile("blunt cone.neu");
+ofstream vis("visual.dat");
+
+void coord()
+{
+   int n;
+
+	gridfile>>nodes>>neles;
+   vis<<nodes <<'\t'<<neles<<'\t'<<'3'<<endl<<endl;
+
+   for(int i=1;i<=nodes;i++)                     //loop to read nodes and co-ordinates
+   	{
+    	gridfile>>n;
+    	gridfile>>nx[n]>>ny[n];
+      vis<<n<<'\t'<<nx[n]<<'\t'<<ny[n]<<'\t'<<"0.00"<<endl;
+
+      ny[n]*=0.001;
+      nx[n]*=0.001;
+
+    	//cout<<n<<' '<<nx[n]<<' '<<ny[n]<<endl;
+   	}
+}
+
+void elements()
+{
+	int /*n1, n2, n3,*/ elno, dummy, k=1, counter=0;
+
+   for(int i=1;i<=nodes;i++)neighbornode[i][1]=i;
+
+   for (int j=1;j<=neles;j++)
+   	{
+      gridfile>>elno>>dummy>>dummy>>n1[j]>>n2[j]>>n3[j];
+      vis<<elno<<'\t'<<n1[j]<<'\t'<<n2[j]<<'\t'<<n3[j]<<'\t'<<'0'<<endl;
+
+
+      //finding out neighboring nodes to every node
+      for(int i=1;i<=nodes;i++)	{
+
+      											if(i==n1[j]){	while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n2[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n2[j]; k=1; counter=0;
+                                                   					while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n3[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n3[j]; k=1; counter=0;
+                                       								};
+
+                                       if(i==n2[j]){	while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n1[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n1[j];k=1; counter=0;
+                                                                  while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n3[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n3[j];k=1; counter=0;
+                                       								};
+
+                                       if(i==n3[j]){	while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n2[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n2[j];k=1; counter=0;
+                                                   					while(neighbornode[i][k]!=0){if(neighbornode[i][k]==n1[j])counter++;k++;};
+                                                                  if(counter==0)neighbornode[i][k]=n1[j]; counter=0;k=1;
+                                                 					};
+
+                                 	while(neighbornode[i][++neighborno[i]]!=0);
+                                    neighborno[i]--;
+      									}
+      }
+}
+
+void boundop()
+{
+	int boundnodes[breso][10]={0}, ntype[breso]={0}, closeneig[breso][3]={0}, symnodes, innodes,outnodes, wallnodes, dummy, nbel[breso][11], nside[breso][11];
+   long double dist, minidist=1000.00;
+
+   	ifstream symfile("symmetry.dat"); 	symfile>>dummy>>symnodes>>dummy>>dummy;
+		ifstream infile("inflow.dat"); 		infile>>dummy>>innodes>>dummy>>dummy;
+      ifstream outfile("outflow.dat"); 	outfile>>dummy>>outnodes>>dummy>>dummy;
+      ifstream wallfile("wall.dat");      wallfile>>dummy>>wallnodes>>dummy>>dummy;
+
+      for(int i=1;i<=symnodes;i++){symfile>>boundnodes[i][1]; ntype[i]=4;}
+      for(int i=symnodes+1;i<=symnodes+innodes;i++){infile>>boundnodes[i][1]; ntype[i]=1;}
+      for(int i=symnodes+innodes+1;i<=symnodes+innodes+outnodes;i++){outfile>>boundnodes[i][1];ntype[i]=3;}
+      for(int i=symnodes+innodes+outnodes+1;i<=symnodes+innodes+outnodes+wallnodes;i++){wallfile>>boundnodes[i][1];ntype[i]=5;}
+
+      int totbnodes=symnodes+innodes+outnodes+wallnodes;
+      cout<<totbnodes;
+
+      int counter=0;
+      for(int i=1;i<=totbnodes;i++)
+      {for(int j=1;j<nodes;j++)if(boundnodes[i][1]==neighbornode[j][1])
+      																						for(int k=1; k<=neighborno[j]; k++)
+                                                                        												{for(int l=1;l<=totbnodes;l++)if(neighbornode[j][k]!=boundnodes[l][1])counter++;if(counter==totbnodes)boundnodes[i][m++]=neighbornode[j][k];counter=0;}m=2;}
+
+
+      for(int i=1;i<=totbnodes;i++){for(int q=2;q<10;q++)if(boundnodes[i][q]!=0){	dist=sqrt((nx[boundnodes[i][1]]-nx[boundnodes[i][q]])*(nx[boundnodes[i][1]]-nx[boundnodes[i][q]])+(ny[boundnodes[i][1]]-ny[boundnodes[i][q]])*(ny[boundnodes[i][1]]-ny[boundnodes[i][q]]));
+      																										closeneig[i][1]=boundnodes[i][1];
+                                                                                    if (dist<=minidist){minidist=dist; closeneig[i][2]=boundnodes[i][q];}
+                                                                                  }
+                                     minidist=1000.00;
+                                     }
+                                     cout<<"test";
+
+       int l=1;
+
+      for(int i=1; i<=totbnodes; i++)
+      										{for(int j=1; j<=neles; j++)
+                                    									{	if(closeneig[i][1]==n1[j])for(int k=1; k<=totbnodes; k++){	if(n2[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=1;} //note: the l-1 is not a 0 to 1 indexing problem. It is to check with the previous entry.
+                                                                                                                           	if(n3[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=3;}
+                                                               																			 	}
+                                                                  if(closeneig[i][1]==n2[j])for(int k=1; k<=totbnodes; k++){	if(n1[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=1;}
+                                                                                                                           	if(n3[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=2;}
+                                                               																			 	}
+                                                                  if(closeneig[i][1]==n3[j])for(int k=1; k<=totbnodes; k++){	if(n1[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=3;}
+                                                                                                                           	if(n2[j]==closeneig[k][1]&&nbel[i][l-1]!=j){nbel[i][l]=j; nside[i][l++]=2;}
+                                                               																			 	}
+                                                               }
+                                                               l=1;
+                                    }
+
+      ofstream closenode("bc.in");
+     closenode<<"boundary node\tclosest node\tboundary type\telement,side\n";
+
+     l=1;
+
+     for(int i=1;i<=totbnodes;i++){closenode<<closeneig[i][1]<<"\t\t"<<closeneig[i][2]<<"\t\t"<<ntype[i]<<"\t\t"; while(nbel[i][l]!=0){closenode<<nbel[i][l]<<' '<<nside[i][l]<<'\t';++l;} closenode<<endl; l=1;}
+
+}
+
+
+
+void main()
+{
+	coord();
+   elements();
+   boundop();
+
+   getch();
+}
+
